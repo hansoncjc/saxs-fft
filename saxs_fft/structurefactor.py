@@ -1,8 +1,8 @@
 import numpy as np
 import os
 import torch
-from utils import read_configuration
-from gsdio import extract_positions
+from .utils import read_configuration
+from .gsdio import extract_positions
 
 def _torch_cell_list(x_t, box_t, rmax):
     rmax_t = torch.broadcast_to(rmax, box_t.shape)

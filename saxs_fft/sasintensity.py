@@ -1,7 +1,7 @@
 import numpy as np
 from abc import ABC, abstractmethod
-from structurefactor import StructureFactor
-from formfactor import Sphere
+from .structurefactor import StructureFactor
+from .formfactor import Sphere
 import matplotlib.pyplot as plt
 
 class Intensity(ABC):
