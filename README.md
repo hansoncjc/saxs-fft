@@ -14,6 +14,11 @@ pip install -e .
 pip install -e ".[dev]"
 ```
 
+```bash
+# from github
+pip install git+https://github.com/yourusername/saxs-fft.git
+
+
 ## Quick Start
 
 ### Basic Usage
