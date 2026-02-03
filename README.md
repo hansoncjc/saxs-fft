@@ -12,11 +12,10 @@ pip install -e .
 
 # With dev dependencies
 pip install -e ".[dev]"
-```
 
-```bash
 # from github
-pip install git+https://github.com/yourusername/saxs-fft.git
+pip install git+https://github.com/hansoncjc/saxs-fft.git
+```
 
 
 ## Quick Start
