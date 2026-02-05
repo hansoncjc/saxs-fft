@@ -2,14 +2,14 @@
 
 ## v0.2.0 (2026-02-03)
 ### Changed
-- **BREAKING**: Renamed package from `gsd2sas` to `saxs_fft`
+- **BREAKING**: Renamed package from `gsd2sas` to `saxsfft`
 - Reorganized project structure as proper pip-installable package
 - Updated imports to use relative imports within package
 - Changed default frames selection to `'last:5'` in `set_structure_factor()` and `StructureFactor` constructor
 
 ### Added
 - Added `pyproject.toml` for modern Python packaging
-- Added `saxs_fft/__init__.py` with public API exports
+- Added `saxsfft/__init__.py` with public API exports
 - Added `.gitignore` for Python projects
 - Added comprehensive README with installation and usage instructions
 - Package now installable via `pip install -e .`
@@ -21,7 +21,7 @@ To migrate from v0.1.0 to v0.2.0, update your imports:
 from gsd2sas.structurefactor import StructureFactor
 
 # New (v0.2.0)
-from saxs_fft import StructureFactor
+from saxsfft import StructureFactor
 ```
 
 ## v0.1.0

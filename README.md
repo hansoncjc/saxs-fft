@@ -22,7 +22,7 @@ pip install git+https://github.com/hansoncjc/saxs-fft.git
 
 ### Basic Usage
 ```python
-from saxs_fft import StructureFactor
+from saxsfft import StructureFactor
 import torch
 
 # Create structure factor calculator
@@ -55,7 +55,7 @@ q, s = sf.compute_s_1d()
 The package includes torch-backed structure factor calculations with GPU support:
 
 ```python
-from saxs_fft import StructureFactor
+from saxsfft import StructureFactor
 import torch
 
 # Use CUDA GPU

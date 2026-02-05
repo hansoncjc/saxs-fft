@@ -42,4 +42,4 @@ Homepage = "https://github.com/yourusername/saxs-fft"
 Repository = "https://github.com/yourusername/saxs-fft"
 
 [tool.setuptools]
-packages = ["saxs_fft"]
+packages = ["saxsfft"]
