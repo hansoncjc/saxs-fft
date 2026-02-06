@@ -4,14 +4,17 @@ import torch
 from .utils import read_configuration
 from .gsdio import extract_positions
 
-def _torch_cell_list(x_t, box_t, rmax):
-    rmax_t = torch.broadcast_to(rmax, box_t.shape)
-    ncell = torch.floor(box_t / rmax_t).to(torch.int64)
-    ncell = torch.clamp(ncell, min=3)
+def _torch_cell_list(x_t, box_t, n_grid_vec):
+    """Assign particles to grid cells using pre-computed grid dimensions."""
+    n_grid_vec = torch.clamp(n_grid_vec, min=3)
 
     x_wrapped = torch.remainder(x_t, box_t)
-    cell = torch.floor(x_wrapped * ncell.to(x_t.dtype) / box_t).to(torch.int64)
-    return cell, ncell
+    cell = torch.floor(x_wrapped * n_grid_vec.to(x_t.dtype) / box_t).to(torch.int64)
+    # Clamp to valid range to handle edge cases from floating point
+    # Use element-wise min/max since n_grid_vec is a tensor
+    cell = torch.maximum(cell, torch.zeros_like(cell))
+    cell = torch.minimum(cell, (n_grid_vec - 1).unsqueeze(0))
+    return cell
 
 def _torch_binned_sum_count(values, bins, bin_edges):
     idx = torch.bucketize(bins, bin_edges) - 1
@@ -38,9 +41,8 @@ def _compute_s_3d_torch(x, box, N_grid, device=None, dtype=None):
 
     L_grid = torch.min(box_t) / N_grid
     n_grid_vec = torch.round(box_t / L_grid).to(torch.int64)
-    L_grid = box_t / n_grid_vec.to(dtype)
 
-    cells, _ = _torch_cell_list(x_t, box_t, rmax=L_grid)
+    cells = _torch_cell_list(x_t, box_t, n_grid_vec)
     shape = (int(n_grid_vec[0]), int(n_grid_vec[1]), int(n_grid_vec[2]))
     xgrid_re = torch.zeros(shape, dtype=dtype, device=x_t.device)
     if N > 0:
@@ -55,19 +57,19 @@ def compute_s_3d(x, box, N_grid, device=None, dtype=None):
     S_3, n_grid_vec = _compute_s_3d_torch(x, box, N_grid, device=device, dtype=dtype)
     return S_3.cpu().numpy(), n_grid_vec.cpu().numpy()
 
-def _compute_q3_grid_torch(box, N_grid, device=None, dtype=None):
+def _compute_q3_grid_torch(box, N_grid, n_grid_vec=None, device=None, dtype=None):
     """
     Compute the 3D grid of q-vectors for a given configuration.
-    
+
     Parameters
     ----------
-    x : np.ndarray
-        Particle positions. Shape: (N, 3).
     box : np.ndarray
         Box dimensions. Shape: (3,).
     N_grid : int
         number of grid points in the smallest dimension
-    
+    n_grid_vec : torch.Tensor, optional
+        Pre-computed grid dimensions. If None, computed from box and N_grid.
+
     Returns
     -------
     q3x, q3y, q3z : float
@@ -78,14 +80,15 @@ def _compute_q3_grid_torch(box, N_grid, device=None, dtype=None):
         dtype = torch.float64
     box_t = torch.as_tensor(box, dtype=dtype, device=device)
 
-    L_grid = torch.min(box_t) / N_grid
-    ncell = torch.round(box_t / L_grid).to(torch.int64)
+    if n_grid_vec is None:
+        L_grid = torch.min(box_t) / N_grid
+        n_grid_vec = torch.round(box_t / L_grid).to(torch.int64)
 
     dq = 2 * np.pi / box_t
 
-    qx = torch.fft.fftshift(torch.fft.fftfreq(int(ncell[0]), d=1.0 / int(ncell[0]), device=box_t.device)) * dq[0]
-    qy = torch.fft.fftshift(torch.fft.fftfreq(int(ncell[1]), d=1.0 / int(ncell[1]), device=box_t.device)) * dq[1]
-    qz = torch.fft.fftshift(torch.fft.fftfreq(int(ncell[2]), d=1.0 / int(ncell[2]), device=box_t.device)) * dq[2]
+    qx = torch.fft.fftshift(torch.fft.fftfreq(int(n_grid_vec[0]), d=1.0 / int(n_grid_vec[0]), device=box_t.device)) * dq[0]
+    qy = torch.fft.fftshift(torch.fft.fftfreq(int(n_grid_vec[1]), d=1.0 / int(n_grid_vec[1]), device=box_t.device)) * dq[1]
+    qz = torch.fft.fftshift(torch.fft.fftfreq(int(n_grid_vec[2]), d=1.0 / int(n_grid_vec[2]), device=box_t.device)) * dq[2]
 
     q3x, q3y, q3z = torch.meshgrid(qx, qy, qz, indexing='ij')
     return q3x, q3y, q3z
@@ -117,8 +120,8 @@ def compute_s_1d(x, box, N_grid, device=None, dtype=None):
     """
     if dtype is None:
         dtype = torch.float64
-    S_3_t, _ = _compute_s_3d_torch(x, box, N_grid, device=device, dtype=dtype)
-    q_3_x_t, q_3_y_t, q_3_z_t = _compute_q3_grid_torch(box, N_grid, device=device, dtype=dtype)
+    S_3_t, n_grid_vec = _compute_s_3d_torch(x, box, N_grid, device=device, dtype=dtype)
+    q_3_x_t, q_3_y_t, q_3_z_t = _compute_q3_grid_torch(box, N_grid, n_grid_vec=n_grid_vec, device=device, dtype=dtype)
     q_1 = torch.sqrt(q_3_x_t ** 2 + q_3_y_t ** 2 + q_3_z_t ** 2).reshape(-1)
 
     S_3_t = S_3_t.reshape(-1)
