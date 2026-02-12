@@ -137,7 +137,7 @@ def compute_s_1d(x, box, N_grid, device=None, dtype=None):
     return q_bin_centers.cpu().numpy(), num_1.cpu().numpy(), cnt_1.cpu().numpy()
 
 class StructureFactor:
-    def __init__(self, gsd_path, N_grid, frames='last:5', device=None, dtype=None):
+    def __init__(self, gsd_path, N_grid, frames='last:150', device=None, dtype=None):
         self.gsd_path = gsd_path
         self.N_grid = N_grid
         self.frames = frames
