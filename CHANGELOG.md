@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.2.1 (2026-03-06)
+### Fixed
+- **Unit mismatch in `SphereIntensity.set_form_factor`**: `particle_diameter` is stored in
+  **nm**, but `compute_s_1d` returns `q` in **Å⁻¹** (dividing reduced-unit q by
+  `diameter × 10`).  The auto-derived radius was previously left in nm, making `qr`
+  10× too small and shifting all P(q) features to artificially high q.  The radius is
+  now correctly converted to Å (`diameter / 2 × 10`) so that `qr` is dimensionless
+  and consistent with the q axis.
+
+### Changed
+- Default `frames` value changed from `"last:5"` to `"last:150"` in both
+  `StructureFactor` and `SphereIntensity.set_structure_factor` for better
+  statistical averaging out of the box.
+
+### Added
+- `particle_diameter` parameter on `StructureFactor` and `SphereIntensity.set_structure_factor`
+  for automatic physical-unit conversion of q from reduced to Å⁻¹.
+- Expanded README with a full usage guide covering S(q), P(q), I(q), unit conventions,
+  plotting examples, and an API reference table.
+
+---
+
 ## v0.2.0 (2026-02-03)
 ### Changed
 - **BREAKING**: Renamed package from `gsd2sas` to `saxsfft`

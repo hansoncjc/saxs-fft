@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "saxs-fft"
-version = "0.2.0"
+version = "0.2.1"
 description = "Structure factor and SAS intensity calculation from GSD files using FFT"
 readme = "README.md"
 requires-python = ">=3.8"
