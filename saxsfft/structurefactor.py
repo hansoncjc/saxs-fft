@@ -97,8 +97,8 @@ def compute_q3_grid(x, box, N_grid, device=None, dtype=None):
     q3x, q3y, q3z = _compute_q3_grid_torch(box, N_grid, device=device, dtype=dtype)
     return q3x.cpu().numpy(), q3y.cpu().numpy(), q3z.cpu().numpy()
 
-def compute_s_1d(x, box, N_grid, device=None, dtype=None):
-
+def compute_s_1d(x, box, N_grid, particle_diameter=None, trim=slice(3, -3),
+                 device=None, dtype=None):
     """
     Compute 1D radially averaged structure factor S(q) from particle positions.
 
@@ -110,13 +110,24 @@ def compute_s_1d(x, box, N_grid, device=None, dtype=None):
         (3,) simulation box lengths.
     N_grid : int
         Number of grid points in the smallest box dimension.
+    particle_diameter : float, optional
+        Particle diameter in **nm**.  When provided, q is converted from
+        reduced units to Å⁻¹ via ``q / (particle_diameter * 10)``.
+    trim : slice, optional
+        Slice applied to both ``q`` and ``S1d`` before returning.
+        Default ``slice(3, -3)`` removes the first and last 3 points.
+        Set to ``slice(None)`` to disable trimming.
+    device : str or torch.device, optional
+    dtype : torch.dtype, optional
 
     Returns
     -------
-    S_1 : np.ndarray
-        1D radially averaged structure factor.
-    q_1_centers : np.ndarray
-        Centers of qr bins (magnitude of wavevector, non-dimensional).
+    q : np.ndarray
+        q bin centres (Å⁻¹ if ``particle_diameter`` given, else reduced).
+    num : np.ndarray
+        Binned numerator (sum of S_3d values per q-shell).
+    cnt : np.ndarray
+        Binned counts per q-shell.
     """
     if dtype is None:
         dtype = torch.float64
@@ -134,13 +145,46 @@ def compute_s_1d(x, box, N_grid, device=None, dtype=None):
 
     num_1, cnt_1 = _torch_binned_sum_count(S_3_t, q_1, q_binedge)
 
-    return q_bin_centers.cpu().numpy(), num_1.cpu().numpy(), cnt_1.cpu().numpy()
+    q_np = q_bin_centers.cpu().numpy()
+    if particle_diameter is not None:
+        q_np = q_np / (particle_diameter * 10)
+
+    return q_np[trim], num_1.cpu().numpy()[trim], cnt_1.cpu().numpy()[trim]
 
 class StructureFactor:
-    def __init__(self, gsd_path, N_grid, frames='last:150', device=None, dtype=None):
+    def __init__(self, gsd_path, N_grid, frames='last:150', particle_diameter=None,
+                 trim=slice(3, -3), device=None, dtype=None):
+        """
+        Parameters
+        ----------
+        gsd_path : str
+            Path to the GSD trajectory file.
+        N_grid : int
+            Number of grid points in the smallest box dimension.
+        frames : str, optional
+            Frame selection string, default 'last:150'.
+        particle_diameter : float, optional
+            Physical diameter of the particles in **nm**.
+            Stored as ``self.diameter``.  Because ``compute_s_1d`` returns q
+            in Å⁻¹, convert with::
+
+                q_phys [Å⁻¹] = q_reduced / (particle_diameter * 10)
+
+        trim : slice, optional
+            Slice applied to both ``q`` and ``S1d`` before returning from
+            ``compute_s_1d``.  Default is ``slice(3, -3)`` which discards
+            the first 3 and last 3 points, removing FFT artefacts near the
+            boundaries of the q-range.
+        device : str or torch.device, optional
+            Torch compute device.
+        dtype : torch.dtype, optional
+            Torch floating-point dtype.
+        """
         self.gsd_path = gsd_path
         self.N_grid = N_grid
         self.frames = frames
+        self.diameter = particle_diameter
+        self.trim = trim
         self.device = device
         self.dtype = dtype if dtype is not None else torch.float64
         self._extract_data()
@@ -167,9 +211,28 @@ class StructureFactor:
         return s_accum / n
 
     def compute_s_1d(self):
+        """
+        Compute the 1D radially averaged S(q), averaged over all frames.
+
+        Delegates diameter conversion and trimming to the standalone
+        :func:`compute_s_1d` via ``self.diameter`` and ``self.trim``.
+
+        Returns
+        -------
+        q : np.ndarray
+            Trimmed q bin centres (Å⁻¹ if ``particle_diameter`` was set).
+        S1d : np.ndarray
+            Trimmed, frame-averaged structure factor values.
+        """
         num_total, cnt_total = None, None
         for x, box in self._iter_frames(self.frames):
-            q, num_i, cnt_i = compute_s_1d(x, box, self.N_grid, device=self.device, dtype=self.dtype)
+            q, num_i, cnt_i = compute_s_1d(
+                x, box, self.N_grid,
+                particle_diameter=self.diameter,
+                trim=self.trim,
+                device=self.device,
+                dtype=self.dtype,
+            )
             if num_total is None:
                 num_total = np.zeros_like(num_i)
                 cnt_total = np.zeros_like(cnt_i)

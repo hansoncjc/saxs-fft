@@ -17,8 +17,35 @@ class Intensity(ABC):
         self.delta_rho = self.sld_sample - self.sld_solvent
         return self.volume_fraction * self.delta_rho**2
 
-    def set_structure_factor(self, gsd_path, N_grid, frames='last:150', device=None, dtype=None):
-        self.structure_factor = StructureFactor(gsd_path, N_grid, frames, device=device, dtype=dtype)
+    def set_structure_factor(self, gsd_path, N_grid, frames='last:150',
+                              particle_diameter=None, trim=slice(3, -3),
+                              device=None, dtype=None):
+        """Instantiate and cache a :class:`StructureFactor`.
+
+        Parameters
+        ----------
+        gsd_path : str
+            Path to the GSD trajectory file.
+        N_grid : int
+            Number of grid points in the smallest box dimension.
+        frames : str, optional
+            Frame selection string passed to :class:`StructureFactor`.
+        particle_diameter : float, optional
+            Physical particle diameter in simulation length units.  Stored on
+            the :class:`StructureFactor` instance as ``self.diameter``.
+        trim : slice, optional
+            Slice applied to ``q`` / ``S1d`` before returning from
+            ``compute_s_1d``.  Defaults to ``slice(3, -3)``.
+        device, dtype
+            Passed through to :class:`StructureFactor`.
+        """
+        self.structure_factor = StructureFactor(
+            gsd_path, N_grid, frames,
+            particle_diameter=particle_diameter,
+            trim=trim,
+            device=device,
+            dtype=dtype,
+        )
 
     @abstractmethod
     def set_form_factor(self, *args, **kwargs):
@@ -55,8 +82,29 @@ class Intensity(ABC):
 
 
 class SphereIntensity(Intensity):
-    def set_form_factor(self, radius):
-        """Set the form factor for a sphere. radius is in nm."""
+    def set_form_factor(self, radius=None):
+        """Set the form factor for a sphere.
+
+        Parameters
+        ----------
+        radius : float, optional
+            Sphere radius in **Å**.  If *None*, the radius is derived from
+            ``self.structure_factor.diameter`` (stored in nm) converted to Å
+            via ``diameter / 2 * 10``.  This ensures ``qr`` is dimensionless
+            because :func:`compute_s_1d` returns ``q`` in Å⁻¹ when
+            ``particle_diameter`` is set.  At least one of ``radius`` or a
+            ``particle_diameter``-bearing structure factor must be provided.
+        """
+        if radius is None:
+            if self.structure_factor is not None and self.structure_factor.diameter is not None:
+                # self.structure_factor.diameter is in nm;
+                # compute_s_1d returns q in Å⁻¹, so radius must be in Å.
+                radius = self.structure_factor.diameter / 2.0 * 10.0  # nm → Å
+            else:
+                raise ValueError(
+                    "radius must be provided explicitly, or particle_diameter must be set "
+                    "on the StructureFactor via set_structure_factor()."
+                )
         self.radius = radius
         self.form_factor = Sphere(radius)
 
