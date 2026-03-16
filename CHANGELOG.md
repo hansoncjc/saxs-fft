@@ -4,6 +4,7 @@
 ### Added
 - **`step` parameter**: Added `step` parameter to `StructureFactor` and `Intensity.set_structure_factor`. This allows sub-sampling frames within a selection window (e.g., `"last:100"` with `step=5` processes 20 frames).
 - **Enhanced Logging**: Improved console output during data extraction to show the GSD path, total frames in the file, and exactly how many frames are being extracted.
+- **Automatic S(q) Saving**: `compute_s_1d()` now automatically saves the averaged structure factor result to both `average_structure_factor.npy` and `average_structure_factor.txt` in the source GSD file's directory.
 
 ### Changed
 - **New Defaults**: Default `frames` changed from `"last:150"` to `"last:100"` and default `step` set to `5`. This reduces default computation time by ~7.5x while still providing representative averaging.

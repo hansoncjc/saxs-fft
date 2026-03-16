@@ -84,6 +84,8 @@ sf = StructureFactor(
 q, Sq = sf.compute_s_1d()
 ```
 
+> **Note:** Calling `compute_s_1d()` automatically saves the result as `average_structure_factor.npy` and `average_structure_factor.txt` in the same directory as your source GSD file.
+
 #### Frame Selection
 
 | `frames` value | Behaviour |

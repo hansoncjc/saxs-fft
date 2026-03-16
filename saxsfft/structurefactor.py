@@ -252,6 +252,17 @@ class StructureFactor:
         S1d = np.divide(num_total, cnt_total,
                 out=np.zeros_like(num_total),
                 where=cnt_total > 0)
+        
+        # Save average S(q) data
+        data = np.column_stack((q, S1d))
+        out_dir = os.path.dirname(os.path.abspath(self.gsd_path))
+        npy_path = os.path.join(out_dir, "average_structure_factor.npy")
+        txt_path = os.path.join(out_dir, "average_structure_factor.txt")
+        
+        np.save(npy_path, data)
+        np.savetxt(txt_path, data, header="q S(q)", fmt='%.8e')
+        # print(f"Saved average structure factor to: {out_dir}")
+
         return q, S1d
 
     def compute_q3_grid(self, frame = 0):
