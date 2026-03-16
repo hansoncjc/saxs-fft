@@ -31,7 +31,8 @@ gsd_path = "path/to/trajectory.gsd"
 sf = StructureFactor(
     gsd_path,
     N_grid=50,
-    frames="last:150",
+    frames="last:100",        # average over last 100 frames
+    step=5,                   # process every 5th frame (default 5)
     particle_diameter=10.0,   # physical diameter in nm (optional)
 )
 q, Sq = sf.compute_s_1d()    # q in Å⁻¹ when particle_diameter is set
@@ -46,7 +47,7 @@ si = SphereIntensity(
     sld_sample=10.0,    # scattering length density, 10⁻⁶ Å⁻²
     sld_solvent=0.0,
 )
-si.set_structure_factor(gsd_path, N_grid=50, particle_diameter=10.0)
+si.set_structure_factor(gsd_path, N_grid=50, frames="last:100", step=5, particle_diameter=10.0)
 si.set_form_factor()   # auto-derives radius from particle_diameter
 q, Iq = si.compute_Iq()
 
@@ -72,7 +73,8 @@ from saxsfft import StructureFactor
 sf = StructureFactor(
     gsd_path      = "trajectory.gsd",
     N_grid        = 50,              # grid points along the smallest box dimension
-    frames        = "last:150",      # which frames to average over
+    frames        = "last:100",      # which frames to selection window (default "last:100")
+    step          = 5,               # how many frames to skip (default 5)
     particle_diameter = 10.0,        # physical diameter in nm (see Unit Conventions)
     trim          = slice(3, -3),    # discard FFT artefacts near q boundaries
     device        = "cuda",          # or "cpu"
@@ -87,9 +89,11 @@ q, Sq = sf.compute_s_1d()
 | `frames` value | Behaviour |
 |----------------|-----------|
 | `"all"` | Every frame in the file |
-| `"last:N"` | Last *N* frames (default `"last:150"`) |
+| `"last:N"` | Last *N* frames (default `"last:100"`) |
 | `int` | A single frame by index |
 | list of `int` | Specific frame indices |
+
+> **Note on stepping:** When using `"last:N"`, you can also provide a `step` parameter (default 5) to sub-sample frames within that window. For example, `frames="last:100", step=5` will process 20 frames.
 
 #### Unit Conventions
 
@@ -146,7 +150,8 @@ si = SphereIntensity(
 si.set_structure_factor(
     "trajectory.gsd",
     N_grid=50,
-    frames="last:150",
+    frames="last:100",
+    step=5,
     particle_diameter=10.0,   # nm
 )
 
@@ -225,13 +230,14 @@ sf = StructureFactor("trajectory.gsd", N_grid=50, device="cpu")
 | — | `extract_positions` | Extract particle positions from a GSD file |
 | — | `read_configuration` | Read positions + box from a text snapshot |
 
-### `StructureFactor(gsd_path, N_grid, frames, particle_diameter, trim, device, dtype)`
+### `StructureFactor(gsd_path, N_grid, frames, step, particle_diameter, trim, device, dtype)`
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `gsd_path` | str | — | Path to `.gsd` file |
 | `N_grid` | int | — | Grid points along smallest box axis |
-| `frames` | str / int / list | `"last:150"` | Frame selection |
+| `frames` | str / int / list | `"last:100"` | Frame selection |
+| `step` | int | `5` | Frames to skip (valid with `"last:N"`) |
 | `particle_diameter` | float | `None` | Physical diameter in **nm**; enables Å⁻¹ output |
 | `trim` | slice | `slice(3,-3)` | Trim FFT edge artefacts |
 | `device` | str / device | `None` | Torch compute device |

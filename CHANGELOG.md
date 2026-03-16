@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.2.2 (2026-03-16)
+### Added
+- **`step` parameter**: Added `step` parameter to `StructureFactor` and `Intensity.set_structure_factor`. This allows sub-sampling frames within a selection window (e.g., `"last:100"` with `step=5` processes 20 frames).
+- **Enhanced Logging**: Improved console output during data extraction to show the GSD path, total frames in the file, and exactly how many frames are being extracted.
+
+### Changed
+- **New Defaults**: Default `frames` changed from `"last:150"` to `"last:100"` and default `step` set to `5`. This reduces default computation time by ~7.5x while still providing representative averaging.
+
+### Fixed
+- Robustness improvement in `read_configuration` to handle trailing whitespace or malformed lines at the end of text configuration files.
+
 ## v0.2.1 (2026-03-06)
 ### Fixed
 - **Unit mismatch in `SphereIntensity.set_form_factor`**: `particle_diameter` is stored in
