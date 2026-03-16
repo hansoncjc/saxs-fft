@@ -152,7 +152,7 @@ def compute_s_1d(x, box, N_grid, particle_diameter=None, trim=slice(3, -3),
     return q_np[trim], num_1.cpu().numpy()[trim], cnt_1.cpu().numpy()[trim]
 
 class StructureFactor:
-    def __init__(self, gsd_path, N_grid, frames='last:150', particle_diameter=None,
+    def __init__(self, gsd_path, N_grid, frames='last:100', step=5, particle_diameter=None,
                  trim=slice(3, -3), device=None, dtype=None):
         """
         Parameters
@@ -162,7 +162,9 @@ class StructureFactor:
         N_grid : int
             Number of grid points in the smallest box dimension.
         frames : str, optional
-            Frame selection string, default 'last:150'.
+            Frame selection string, default 'last:100'.
+        step : int, optional
+            How many frames to skip when using 'last:N'. Only valid with 'last:N', default 5.
         particle_diameter : float, optional
             Physical diameter of the particles in **nm**.
             Stored as ``self.diameter``.  Because ``compute_s_1d`` returns q
@@ -183,6 +185,7 @@ class StructureFactor:
         self.gsd_path = gsd_path
         self.N_grid = N_grid
         self.frames = frames
+        self.step = step
         self.diameter = particle_diameter
         self.trim = trim
         self.device = device
@@ -190,9 +193,17 @@ class StructureFactor:
         self._extract_data()
 
     def _extract_data(self):
+        print(f"Loaded GSD: {self.gsd_path}")
         self.txt_path = os.path.splitext(self.gsd_path)[0] + '.txt'
-        extract_positions(self.gsd_path, self.txt_path)
-        self.x, self.box = read_configuration(self.txt_path, self.frames)
+        total_extracted = extract_positions(self.gsd_path, self.txt_path)
+        print(f"Total Frame: {total_extracted}")
+        
+        frame_msg = f"{self.frames} frame will be extracted"
+        if isinstance(self.frames, str) and self.frames.startswith("last"):
+            frame_msg += f" with step {self.step}."
+        print(frame_msg)
+
+        self.x, self.box = read_configuration(self.txt_path, self.frames, step=self.step)
 
 
     def _iter_frames(self, frames=None):
@@ -241,7 +252,6 @@ class StructureFactor:
         S1d = np.divide(num_total, cnt_total,
                 out=np.zeros_like(num_total),
                 where=cnt_total > 0)
-        print(f'Total frames processed: {len(self.x)}')
         return q, S1d
 
     def compute_q3_grid(self, frame = 0):

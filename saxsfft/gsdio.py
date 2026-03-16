@@ -41,4 +41,4 @@ def extract_positions(gsd_file, output_file):
                 f.write('\n')
                 N_frames += 1
                 
-    print(f'Total frames extracted: {N_frames}')
+    return N_frames

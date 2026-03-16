@@ -17,7 +17,7 @@ class Intensity(ABC):
         self.delta_rho = self.sld_sample - self.sld_solvent
         return self.volume_fraction * self.delta_rho**2
 
-    def set_structure_factor(self, gsd_path, N_grid, frames='last:150',
+    def set_structure_factor(self, gsd_path, N_grid, frames='last:100', step=5,
                               particle_diameter=None, trim=slice(3, -3),
                               device=None, dtype=None):
         """Instantiate and cache a :class:`StructureFactor`.
@@ -29,7 +29,9 @@ class Intensity(ABC):
         N_grid : int
             Number of grid points in the smallest box dimension.
         frames : str, optional
-            Frame selection string passed to :class:`StructureFactor`.
+            Frame selection string passed to :class:`StructureFactor`, default 'last:100'.
+        step : int, optional
+            How many frames to skip when using 'last:N'. Only valid with 'last:N', default 5.
         particle_diameter : float, optional
             Physical particle diameter in simulation length units.  Stored on
             the :class:`StructureFactor` instance as ``self.diameter``.
@@ -40,7 +42,7 @@ class Intensity(ABC):
             Passed through to :class:`StructureFactor`.
         """
         self.structure_factor = StructureFactor(
-            gsd_path, N_grid, frames,
+            gsd_path, N_grid, frames, step=step,
             particle_diameter=particle_diameter,
             trim=trim,
             device=device,

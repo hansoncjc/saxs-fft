@@ -1,18 +1,28 @@
 import numpy as np
 from collections import deque
 
-def read_configuration(position_file, frames = 'all'):
+def read_configuration(position_file, frames = 'all', step = 1):
     """
     Parameters
     ----------
     frames : int | Iterable[int] | 'all' | 'last:N'
         Which frame indices to read from the file. Use 'last:N' for the last N frames.
+    step : int, optional
+        How many frames to skip when using 'last:N'. Only valid with 'last:N'.
     Returns
     -------
     x   : (F, N, 3) float64   positions for each requested frame
     box : (F, 3)     float64   box lengths for each frame
     """
     
+    # Validation for step
+    if step != 1:
+        if not (isinstance(frames, str) and frames.startswith('last:')):
+            import warnings
+            msg = "The 'step' parameter is only valid when frames is set to 'last:N'."
+            warnings.warn(msg, UserWarning)
+            raise ValueError(f"Error: {msg} (Invalid frames specifier for stepping)")
+
     last_n = None
     if isinstance(frames, str) and frames.startswith('last:'):
         try:
@@ -44,7 +54,10 @@ def read_configuration(position_file, frames = 'all'):
         while True:
             first = f.readline()
             if not first: break
-            N     = int(first)
+            try:
+                N = int(first)
+            except ValueError:
+                break # Handle trailing whitespace or empty lines
             box   = np.fromstring(f.readline(), sep=' ')
             pos   = np.fromfile(f, count=3*N, sep=' ').reshape(N,3)
             #_     = f.readline()            # blank line
@@ -59,7 +72,15 @@ def read_configuration(position_file, frames = 'all'):
             frame_idx += 1
             if last_n is None and (not read_all) and frame_idx > max(target):
                 break
-    return np.stack(list(x_list)), np.stack(list(box_list))
+    
+    x_ret = np.stack(list(x_list))
+    box_ret = np.stack(list(box_list))
+    
+    if step > 1:
+        x_ret = x_ret[::step]
+        box_ret = box_ret[::step]
+        
+    return x_ret, box_ret
             
 def cell_list(x, box, rmax):
     """
