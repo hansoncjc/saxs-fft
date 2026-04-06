@@ -1,7 +1,7 @@
 import numpy as np
 from gsd import hoomd
 
-def extract_positions(gsd_file, output_file):
+def extract_positions(gsd_file, output_file, frames="all"):
     """
     Load particle positions from a GSD file. 
 
@@ -9,24 +9,39 @@ def extract_positions(gsd_file, output_file):
     ----------
     gsd_file : str
         Path to the GSD file.
-    out_file : str
+    output_file : str
         Path to the output text file.
+    frames : str, optional
+        Which frames to extract. Default is "all". 
+        To extract the last N frames, use format "last:N" (e.g., "last:5").
+        Any other string will raise a ValueError.
+
     Returns
     -------
-    positions : np.ndarray
-        Particle positions. Shape:
-        - (N, D) if single frame
-        - (F, N, D) if all frames
+    N_frames : int
+        Number of frames processed.
     """
     # Open gsd file
     traj = hoomd.open(name=gsd_file, mode='r')
+    
+    if frames == "all":
+        frames_to_extract = traj
+    elif isinstance(frames, str) and frames.startswith("last:"):
+        try:
+            n = int(frames.split(":", 1)[1])
+            frames_to_extract = traj[-n:]
+        except (ValueError, IndexError):
+            raise ValueError(f"Invalid format for frames: {frames}. Use 'last:N' where N is an integer.")
+    else:
+        raise ValueError(f"Invalid frames string: {frames}. Must be 'all' or 'last:N' where N is an integer.")
+
     N_frames = 0
     # Save file if 
     if output_file is not None:
         with open(output_file, 'w') as f:
         
             # Loop through frames
-            for frame in traj:
+            for frame in frames_to_extract:
                 
                 # Read data
                 N = frame.particles.N
