@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "Jingcong Chen", email = "hansonjc@uw.edu"}
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -38,8 +38,8 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/saxs-fft"
-Repository = "https://github.com/yourusername/saxs-fft"
+Homepage = "https://github.com/hansoncjc/saxs-fft"
+Repository = "https://github.com/hansoncjc/saxs-fft"
 
 [tool.setuptools]
 packages = ["saxsfft"]
