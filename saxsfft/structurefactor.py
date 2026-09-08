@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import torch
-from .utils import read_configuration
+from .utils import _normalize_frames, read_configuration
 from .gsdio import extract_positions
 
 def _torch_cell_list(x_t, box_t, n_grid_vec):
@@ -152,7 +152,7 @@ def compute_s_1d(x, box, N_grid, particle_diameter=None, trim=slice(3, -3),
     return q_np[trim], num_1.cpu().numpy()[trim], cnt_1.cpu().numpy()[trim]
 
 class StructureFactor:
-    def __init__(self, gsd_path, N_grid, frames='last:100', step=5, particle_diameter=None,
+    def __init__(self, gsd_path, N_grid, frames='last:100', step=1, particle_diameter=None,
                  trim=slice(3, -3), device=None, dtype=None):
         """
         Parameters
@@ -164,7 +164,12 @@ class StructureFactor:
         frames : str, optional
             Frame selection string, default 'last:100'.
         step : int, optional
-            How many frames to skip when using 'last:N'. Only valid with 'last:N', default 5.
+            Keep every ``step``-th frame.  Only applies to ``frames='last:N'``;
+            with any other specifier it is ignored and a ``UserWarning`` is
+            issued.  Default 1 (keep every frame).  See
+            :func:`saxsfft.utils.read_configuration` for the exact ordering:
+            the last N frames are taken first, then ``[::step]`` is applied to
+            that window from its oldest frame.
         particle_diameter : float, optional
             Physical diameter of the particles in **nm**.
             Stored as ``self.diameter``.  Because ``compute_s_1d`` returns q
@@ -198,8 +203,17 @@ class StructureFactor:
         total_extracted = extract_positions(self.gsd_path, self.txt_path)
         print(f"Total Frame: {total_extracted}")
         
+        mode, payload = _normalize_frames(self.frames)
+        if mode == 'indices':
+            out_of_range = [i for i in payload if i >= total_extracted]
+            if out_of_range:
+                raise ValueError(
+                    f"frame index {out_of_range[0]} out of range: "
+                    f"{self.gsd_path!r} has {total_extracted} frame(s)."
+                )
+
         frame_msg = f"{self.frames} frame will be extracted"
-        if isinstance(self.frames, str) and self.frames.startswith("last"):
+        if mode == 'last':
             frame_msg += f" with step {self.step}."
         print(frame_msg)
 

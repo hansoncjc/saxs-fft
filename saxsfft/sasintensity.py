@@ -2,7 +2,6 @@ import numpy as np
 from abc import ABC, abstractmethod
 from .structurefactor import StructureFactor
 from .formfactor import Sphere
-import matplotlib.pyplot as plt
 
 class Intensity(ABC):
     def __init__(self, volume_fraction, sld_sample, sld_solvent):
@@ -17,7 +16,7 @@ class Intensity(ABC):
         self.delta_rho = self.sld_sample - self.sld_solvent
         return self.volume_fraction * self.delta_rho**2
 
-    def set_structure_factor(self, gsd_path, N_grid, frames='last:100', step=5,
+    def set_structure_factor(self, gsd_path, N_grid, frames='last:100', step=1,
                               particle_diameter=None, trim=slice(3, -3),
                               device=None, dtype=None):
         """Instantiate and cache a :class:`StructureFactor`.
@@ -31,7 +30,8 @@ class Intensity(ABC):
         frames : str, optional
             Frame selection string passed to :class:`StructureFactor`, default 'last:100'.
         step : int, optional
-            How many frames to skip when using 'last:N'. Only valid with 'last:N', default 5.
+            Keep every ``step``-th frame.  Only applies to ``frames='last:N'``;
+            ignored with a ``UserWarning`` otherwise.  Default 1.
         particle_diameter : float, optional
             Physical particle diameter in simulation length units.  Stored on
             the :class:`StructureFactor` instance as ``self.diameter``.
@@ -58,29 +58,6 @@ class Intensity(ABC):
     def compute_Iq(self):
         """Compute the intensity I(q) based on structure and form factors."""
         pass
-    
-    '''
-    def plot_Iq(self, q_unit = "angstrom"):
-        """Plot the computed intensity I(q) with appropriate labels."""
-        
-        if not hasattr(self, 'Iq'):
-            self.compute_Iq()
-        
-        if q_unit == "angstrom":
-            q = self.qr / (self.radius * 10)
-            u_label = '$q(\AA^{-1})$'
-        elif q_unit == "nm":
-            q = self.qr / self.radius
-            u_label = '$q(nm^{-1}$)'
-        else:
-            raise ValueError("Unsupported q_unit. Use 'angstrom' or 'nm'.")
-        
-        plt.figure(figsize=(8, 6), dpi=100)
-        plt.loglog(q[3:-1], self.Iq[3:-1], label=f'Intensity I(q)')
-        plt.xlabel(u_label, fontsize=14)
-        plt.ylabel('Intensity(a.u.)', fontsize=14)
-    '''
-
 
 
 class SphereIntensity(Intensity):

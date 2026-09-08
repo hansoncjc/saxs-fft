@@ -32,7 +32,7 @@ sf = StructureFactor(
     gsd_path,
     N_grid=50,
     frames="last:100",        # average over last 100 frames
-    step=5,                   # process every 5th frame (default 5)
+    step=5,                   # optional: keep every 5th frame of the window (default 1)
     particle_diameter=10.0,   # physical diameter in nm (optional)
 )
 q, Sq = sf.compute_s_1d()    # q in Å⁻¹ when particle_diameter is set
@@ -73,8 +73,8 @@ from saxsfft import StructureFactor
 sf = StructureFactor(
     gsd_path      = "trajectory.gsd",
     N_grid        = 50,              # grid points along the smallest box dimension
-    frames        = "last:100",      # which frames to selection window (default "last:100")
-    step          = 5,               # how many frames to skip (default 5)
+    frames        = "last:100",      # frame selection (default "last:100")
+    step          = 1,               # keep every step-th frame of the window (default 1)
     particle_diameter = 10.0,        # physical diameter in nm (see Unit Conventions)
     trim          = slice(3, -3),    # discard FFT artefacts near q boundaries
     device        = "cuda",          # or "cpu"
@@ -91,11 +91,28 @@ q, Sq = sf.compute_s_1d()
 | `frames` value | Behaviour |
 |----------------|-----------|
 | `"all"` | Every frame in the file |
-| `"last:N"` | Last *N* frames (default `"last:100"`) |
-| `int` | A single frame by index |
-| list of `int` | Specific frame indices |
+| `"last:N"` | The last *N* frames (default `"last:100"`). *N* is an upper bound — asking for more frames than the file holds returns all of them |
+| `int` | A single frame, by 0-based index |
+| iterable of `int` | Specific 0-based indices: a list, tuple, `range`, or NumPy integer array such as `np.arange(0, 100, 5)` |
 
-> **Note on stepping:** When using `"last:N"`, you can also provide a `step` parameter (default 5) to sub-sample frames within that window. For example, `frames="last:100", step=5` will process 20 frames.
+Negative indices are not supported — use `"last:N"` to select from the end of
+the trajectory. Anything outside the four forms above raises `ValueError` with a
+message listing what is accepted.
+
+##### Stepping
+
+`step` keeps every *step*-th frame and **only applies to `"last:N"`**. Supplying
+it alongside any other selector is ignored, with a `UserWarning`.
+
+The order of operations matters: the last *N* frames are selected **first**, and
+`[::step]` is then applied to that window **starting from its oldest frame**. The
+newest frame is therefore not necessarily included:
+
+```python
+# On a 6-frame trajectory:
+frames="last:6", step=2   # -> frames 0, 2, 4   (frame 5 is dropped)
+frames="last:5", step=2   # -> frames 1, 3, 5
+```
 
 #### Unit Conventions
 
@@ -239,7 +256,7 @@ sf = StructureFactor("trajectory.gsd", N_grid=50, device="cpu")
 | `gsd_path` | str | — | Path to `.gsd` file |
 | `N_grid` | int | — | Grid points along smallest box axis |
 | `frames` | str / int / list | `"last:100"` | Frame selection |
-| `step` | int | `5` | Frames to skip (valid with `"last:N"`) |
+| `step` | int | `1` | Keep every step-th frame; only applies to `"last:N"` |
 | `particle_diameter` | float | `None` | Physical diameter in **nm**; enables Å⁻¹ output |
 | `trim` | slice | `slice(3,-3)` | Trim FFT edge artefacts |
 | `device` | str / device | `None` | Torch compute device |
@@ -270,11 +287,30 @@ sf = StructureFactor("trajectory.gsd", N_grid=50, device="cpu")
 ## Testing
 
 ```bash
-python tests/single_sim_test.py
-python tests/structurefactor_test.py
+pip install -e ".[dev]"
+pytest
+```
 
-# GPU vs CPU benchmark
-python tests/cpu_gpu_bench.py
+The suite is self-contained — no external data files, no GPU, no network — and
+runs in about one second.
+
+| File | What it covers |
+|------|----------------|
+| `tests/test_structurefactor_api.py` | Interface contracts: return shapes, `trim`, `particle_diameter`, `dtype`, and CPU/CUDA agreement |
+| `tests/test_structurefactor_physics.py` | Numerical correctness against closed-form references: the 1/N normalisation, the ideal-gas limit S(q) → 1, translation invariance, and FCC/BCC Bragg peak positions |
+| `tests/test_gsd_pipeline.py` | The GSD → text → `StructureFactor` path: extraction, frame-selection semantics, input validation, and the HOOMD centered-box convention |
+
+Physics is checked against analytic results rather than stored reference curves:
+a perfect FCC crystal must place its (111) reflection at q = 2π√3/a and a BCC
+crystal its (110) at q = 2π√2/a, each asserted to within one radial bin width.
+
+The CPU/GPU agreement test is skipped automatically when no CUDA device is
+present, so `pytest` on a laptop reports one skip.
+
+To run one file:
+
+```bash
+pytest tests/test_structurefactor_physics.py -v
 ```
 
 ---
