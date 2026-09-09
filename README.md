@@ -1,5 +1,8 @@
 # saxs-fft
 
+[![tests](https://github.com/hansoncjc/saxs-fft/actions/workflows/tests.yml/badge.svg)](https://github.com/hansoncjc/saxs-fft/actions/workflows/tests.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Structure factor S(q), form factor P(q), and SAS intensity I(q) calculation from HOOMD-Blue GSD trajectory files using GPU-accelerated FFT.
 
 ---
