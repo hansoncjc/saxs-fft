@@ -7,7 +7,7 @@ name = "saxs-fft"
 version = "0.3.0"
 description = "Structure factor and SAS intensity calculation from GSD files using FFT"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [
     {name = "Jingcong Chen", email = "hansonjc@uw.edu"}
@@ -17,16 +17,17 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Physics",
 ]
 dependencies = [
     "numpy",
     "torch",
-    "gsd",
+    "gsd; python_version >= '3.10'",
+    "gsd<3.4; python_version < '3.10'",   # 3.4+ ships no cp39 wheel
     "matplotlib",
 ]
 
