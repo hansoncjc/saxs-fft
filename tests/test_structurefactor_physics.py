@@ -117,10 +117,30 @@ def test_first_bragg_peak_position(lattice, n_target):
 
 
 @pytest.mark.parametrize(
-    "lattice,n_target",
-    [("fcc", 864), ("bcc", 1024)],
+    "lattice,n_target,n_grid",
+    # FCC needs a larger configuration than BCC, for two reasons that pull in
+    # opposite directions and must both be satisfied.
+    #
+    # 1. Reflection separation.  FCC's two lowest reflections, (111) and (200),
+    #    are 2 - sqrt(3) = 0.268 reciprocal-lattice units apart, and one radial
+    #    bin is one such unit -- so the separation in bins is Ncell * 0.268.
+    #    At Ncell = 6 that is 1.6 bins: the two reflections land in adjacent
+    #    shells, and since (111) is the stronger, (200) is a shoulder of it
+    #    rather than a local maximum, so the detector walks past it to (220).
+    #    Ncell = 12 gives 3.2 bins, with two background shells between them.
+    #    BCC needs no help here: (110) and (200) are 0.586 units apart, already
+    #    4.7 bins at Ncell = 8.
+    #
+    # 2. Grid resolution per lattice constant, a/Delta = a * N_grid / L.
+    #    Raising Ncell raises L, so N_grid has to rise with it or this halves,
+    #    strengthening nearest-grid-point aliasing.  At Ncell = 12 with
+    #    N_grid = 64 an aliasing artifact appears at q/dq = 15.5 with 14% of
+    #    the peak intensity -- below (111), so the detector finds *it* first.
+    #    N_grid = 128 restores a/Delta to 10.667 and the Nyquist limit to
+    #    16.76, both exactly the values the Ncell = 6 case had.
+    [("fcc", 6912, 128), ("bcc", 1024, 64)],
 )
-def test_peak_ratio_identifies_lattice(lattice, n_target):
+def test_peak_ratio_identifies_lattice(lattice, n_target, n_grid):
     """The first two reflections must be spaced the way this lattice requires.
 
     FCC gives 2/sqrt(3) = 1.1547, BCC gives 2/sqrt(2) = 1.4142.  Unlike the
@@ -128,8 +148,14 @@ def test_peak_ratio_identifies_lattice(lattice, n_target):
     wrong 2*pi factor, say), so the two tests fail on disjoint bug classes.
     The assertion is comparative rather than tolerance-based, which keeps it
     insensitive to the half-bin-width error in each peak position.
+
+    That half-bin error is not incidental here: both lattices put their second
+    reflection at an exact integer multiple of dq, i.e. exactly on a bin edge,
+    where it is misplaced by half a bin whichever side it is assigned to.  See
+    the parametrize comment for why the FCC case needs a larger cell and a
+    finer grid than BCC to be a meaningful test at all.
     """
-    q, S, L, a = _lattice_sq(lattice, n_target)
+    q, S, L, a = _lattice_sq(lattice, n_target, n_grid=n_grid)
     peaks = lowest_q_peaks(q, S, n_peaks=2)
     assert peaks.size == 2, f"found {peaks.size} peak(s) for {lattice}, need 2"
 
