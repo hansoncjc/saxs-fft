@@ -99,3 +99,70 @@ def test_cuda_matches_cpu(random_config):
 
     np.testing.assert_allclose(q_gpu, q_cpu, rtol=1e-12)
     np.testing.assert_allclose(s_gpu, s_cpu, rtol=1e-10, atol=1e-12)
+
+@pytest.mark.parametrize(
+    "torch_dtype,np_dtype",
+    [(torch.float32, np.float32), (torch.float64, np.float64)],
+)
+def test_q_grid_honours_dtype(random_config, torch_dtype, np_dtype):
+    """The q-grid must come back in the dtype that was asked for.
+
+    It did not.  ``fftfreq`` was called without a ``dtype``, so it returned the
+    torch default (float32); multiplying by ``dq[0]`` did not promote the
+    result, because PyTorch gives 0-dim operands lower priority in type
+    promotion and ``dq[0]`` is 0-dim.  The whole radial-binning geometry
+    therefore ran in single precision even when float64 was requested.
+
+    This assertion is on dtype rather than on values on purpose: no numerical
+    tolerance anywhere else in the suite was tight enough to see a 1e-7 error
+    in q.
+    """
+    x, box = random_config
+    q3x, q3y, q3z = compute_q3_grid(x, box, N_grid=8, dtype=torch_dtype)
+
+    assert q3x.dtype == np_dtype
+    assert q3y.dtype == np_dtype
+    assert q3z.dtype == np_dtype
+
+
+def test_cubic_q_grid_is_exact_multiples_of_dq():
+    """On a cubic box every q component is an integer multiple of dq = 2*pi/L.
+
+    The numerical counterpart of the dtype test above: a single-precision
+    q-grid puts each component off its exact multiple by ~1e-7 relative, which
+    this catches and every physics tolerance in the suite is far too loose to.
+    """
+    L = 40.0
+    box = np.array([L, L, L])
+    x = np.zeros((1, 3))          # positions are irrelevant to the q-grid
+
+    q3x, q3y, q3z = compute_q3_grid(x, box, N_grid=64, dtype=torch.float64)
+    dq = 2 * np.pi / L
+
+    for component in (q3x, q3y, q3z):
+        ratio = component / dq
+        assert np.abs(ratio - np.round(ratio)).max() < 1e-12
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="no CUDA device available")
+def test_cuda_matches_cpu_cubic_box(rng):
+    """CPU/GPU agreement on a *cubic* box, the degenerate case.
+
+    ``random_config`` is deliberately non-cubic so that an x/y/z mix-up is
+    detectable, but that also removes the degeneracy this test needs.  With all
+    three edges equal, |q|/dq = sqrt(i^2+j^2+k^2) is exactly an integer
+    whenever i^2+j^2+k^2 is a perfect square, so a large number of grid points
+    sit exactly on a radial bin edge.  Any imprecision in the q-grid nudges
+    them off it, and CPU and GPU then round in different directions and
+    disagree about shell membership.  Production runs use cubic boxes, so this
+    is the geometry that matters most.
+    """
+    L = 40.0
+    box = np.array([L, L, L])
+    x = rng.random((2000, 3)) * box
+
+    q_cpu, s_cpu = radial_sq(x, box, 64, device="cpu")
+    q_gpu, s_gpu = radial_sq(x, box, 64, device="cuda")
+
+    np.testing.assert_allclose(q_gpu, q_cpu, rtol=1e-12)
+    np.testing.assert_allclose(s_gpu, s_cpu, rtol=1e-10, atol=1e-12)

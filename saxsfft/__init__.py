@@ -1,6 +1,6 @@
 """saxs-fft: Structure factor and SAS intensity calculation from GSD files using FFT."""
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 from .structurefactor import StructureFactor
 from .formfactor import FormFactor, Sphere

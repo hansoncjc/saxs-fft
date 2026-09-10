@@ -1,5 +1,89 @@
 # Changelog
 
+## v0.3.1 (2026-09-10)
+
+### Fixed
+- **The q-grid was built in single precision regardless of the requested
+  dtype.** `_compute_q3_grid_torch` called `torch.fft.fftfreq` without a
+  `dtype`, so it returned the torch default (float32), and multiplying by
+  `dq[i]` did not promote the result: PyTorch gives 0-dim operands lower
+  priority in type promotion, and `dq[i]` is 0-dim, so `float32 (3-D) *
+  float64 (0-D)` stays float32. The q-grid, `|q|`, the radial bin edges and
+  the reported q axis therefore carried ~1e-7 relative error even when
+  `dtype=torch.float64` was requested. The density grid and the FFT itself
+  were always genuine float64, which is why the median S(q) shell still agreed
+  to 1e-15 and only a handful of shells were affected.
+
+  Two consequences, both now fixed:
+
+  - **CPU and GPU could disagree.** On a cubic box `|q|/dq` equals
+    `sqrt(i^2+j^2+k^2)`, which is exactly an integer whenever `i^2+j^2+k^2` is
+    a perfect square — putting 41,086 of 8,000,000 grid points (0.51 %) exactly
+    on a radial bin edge at N_grid = 200. Single-precision noise moved them off
+    it and the two devices rounded in different directions: 536 grid points
+    landed in different shells, changing S(q) by up to 9.4e-4 in the worst
+    shell. After the fix, shell occupancies are identical and S(q) agrees to
+    1.2e-14.
+  - **Silent precision loss.** float64 is documented as the default "for
+    numerical fidelity"; the q axis did not honour it.
+
+  Timing impact is negligible — the FFT dominates and was always double
+  precision. Peak GPU memory in float64 mode does rise, since the q-grid is now
+  genuinely 8 bytes per element.
+
+### Added
+- Three regression tests, bringing the suite to 47:
+  - `test_q_grid_honours_dtype` — the q-grid must come back in the dtype that
+    was asked for, checked for float32 and float64. A dtype assertion rather
+    than a numerical one, because no tolerance anywhere else in the suite was
+    tight enough to see a 1e-7 error in q.
+  - `test_cubic_q_grid_is_exact_multiples_of_dq` — the numerical counterpart:
+    on a cubic box every q component must be an exact integer multiple of
+    `dq = 2*pi/L`.
+  - `test_cuda_matches_cpu_cubic_box` — CPU/GPU agreement on a cubic box. The
+    existing `test_cuda_matches_cpu` uses the deliberately non-cubic fixture,
+    which is 34x less densely populated with exact bin-edge ties and so could
+    not see this class of bug, while production runs are cubic.
+- `benchmarks/` — CPU vs GPU measurements taken in a single Hyak allocation
+  (NVIDIA A40 against a saturated 16-core Xeon Gold 6230R, same node, same
+  data): **8.9x in float64 and 14.8x in float32** at a 300^3 grid
+  (2.7e7 points), plus CPU thread-scaling and peak-memory figures, the
+  benchmark script and an example Slurm submission. See
+  `benchmarks/README.md`.
+- GitHub Actions CI running the pytest suite on Python 3.9, 3.10, 3.11 and
+  3.12; tests, license and Python badges in the README.
+
+### Changed
+- `test_peak_ratio_identifies_lattice` was passing by accident, and the dtype
+  fix exposed it. Its FCC case used a 6-cell lattice, where the (111) and (200)
+  reflections are only 1.6 radial bins apart; (200) — whose `|G|` is an exact
+  integer multiple of `dq`, so it sits exactly on a bin edge — was therefore a
+  shoulder of the stronger (111) rather than a local maximum. The test had been
+  finding it only because the single-precision q-grid jittered it into the next
+  shell up; deterministic binning moved it onto (111)'s shoulder and the peak
+  detector fell through to (220), giving a ratio of 1.571 instead of 1.155.
+  The FCC case now uses 12 cells on a 128^3 grid, which separates the
+  reflections by 3.2 bins while keeping the grid resolution per lattice
+  constant (`a/Delta` = 10.667) and the Nyquist limit (16.76) at the values the
+  6-cell case had — raising the cell count alone halves both and introduces a
+  nearest-grid-point aliasing artifact below (111) that the detector picks up
+  instead. BCC is unaffected: its two lowest reflections are 4.7 bins apart.
+- `requires-python` raised to `>=3.9`, classifiers updated to span 3.9-3.12.
+  Python 3.8 was already unusable in practice: PyTorch dropped it after 2.4.
+- `gsd` is constrained to `<3.4` on Python 3.9, where upstream ships no wheel
+  and pip would otherwise fall back to building from source.
+
+### Known
+- `_compute_q3_grid_torch` materialises three full `N_grid^3` meshgrids, which
+  dominates peak memory: 1.81 GiB in float64 at N_grid = 300, extrapolating to
+  roughly 67 GiB at N_grid = 1000 — beyond a 48 GiB A40. Computing `|q|` by
+  broadcasting instead would cut this substantially.
+- The radial bin edges are derived from the minimum and maximum of the computed
+  `|q|`, which differ by one ULP between devices, so the edges themselves are
+  not bitwise identical across CPU and GPU. This has no observable effect on
+  S(q) at any size tested, but the edges are a pure function of `box` and
+  `N_grid` and would be better computed analytically from those.
+
 ## v0.3.0 (2026-09-08)
 
 ### Added

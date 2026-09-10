@@ -86,9 +86,9 @@ def _compute_q3_grid_torch(box, N_grid, n_grid_vec=None, device=None, dtype=None
 
     dq = 2 * np.pi / box_t
 
-    qx = torch.fft.fftshift(torch.fft.fftfreq(int(n_grid_vec[0]), d=1.0 / int(n_grid_vec[0]), device=box_t.device)) * dq[0]
-    qy = torch.fft.fftshift(torch.fft.fftfreq(int(n_grid_vec[1]), d=1.0 / int(n_grid_vec[1]), device=box_t.device)) * dq[1]
-    qz = torch.fft.fftshift(torch.fft.fftfreq(int(n_grid_vec[2]), d=1.0 / int(n_grid_vec[2]), device=box_t.device)) * dq[2]
+    qx = torch.fft.fftshift(torch.fft.fftfreq(int(n_grid_vec[0]), d=1.0 / int(n_grid_vec[0]), device=box_t.device, dtype=dtype)) * dq[0]
+    qy = torch.fft.fftshift(torch.fft.fftfreq(int(n_grid_vec[1]), d=1.0 / int(n_grid_vec[1]), device=box_t.device, dtype=dtype)) * dq[1]
+    qz = torch.fft.fftshift(torch.fft.fftfreq(int(n_grid_vec[2]), d=1.0 / int(n_grid_vec[2]), device=box_t.device, dtype=dtype)) * dq[2]
 
     q3x, q3y, q3z = torch.meshgrid(qx, qy, qz, indexing='ij')
     return q3x, q3y, q3z
